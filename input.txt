@@ -1,0 +1,2 @@
+Quick brown fox jumps over the lazy dog.
+日本語を表示しています。

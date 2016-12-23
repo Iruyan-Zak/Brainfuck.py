@@ -36,19 +36,25 @@ class BrainFuck:
             self.program_counter = self.call_stack[-1]
 
     def read(self):
-        while True:
+        try:
+            self.memory[self.the_pointer] = next(self.istream)
+        except StopIteration:
             try:
-                self.memory[self.the_pointer] = next(self.buffer)
-                return
+                from sys import stdin
+                self.istream = iter(stdin.readline().encode())
+                self.memory[self.the_pointer] = next(self.istream)
             except StopIteration:
-                try:
-                    self.buffer = iter(input().encode())
-                except EOFError:
-                    from itertools import repeat
-                    self.buffer = repeat(0)
+                from itertools import repeat
+                self.istream = repeat(0)
+                self.memory[self.the_pointer] = 0
 
     def put(self):
-        print(chr(self.memory[self.the_pointer]), end='')
+        c = self.memory[self.the_pointer]
+        if c in [ord('\n'), ord('\0')]:
+            print(self.ostream.decode())
+            self.ostream = b''
+        else:
+            self.ostream += c.to_bytes(1, byteorder='big')
 
     def dump(self):
         from sys import stderr
@@ -61,6 +67,8 @@ class BrainFuck:
             while self.program_counter < self.program_length:
                 self.interpreter[self.program[self.program_counter]]()
                 self.program_counter += 1
+            if self.ostream:
+                print(self.ostream.decode(), end='')
         finally:
             self.dump()
 
@@ -79,7 +87,8 @@ class BrainFuck:
         self.the_pointer = 0
         self.memory = defaultdict(int)
         self.call_stack = []
-        self.buffer = iter([])
+        self.istream = iter([])
+        self.ostream = b''
 
         def nop_factory():
             def nop():
@@ -103,12 +112,13 @@ class BrainFuck:
 
 if __name__ == '__main__':
     from sys import argv
+
     try:
         program = open(argv[1]).read()
         if not program:
             raise ValueError
     except:
-        program =\
+        program = \
             "++++++++[>+++++++++<-]>." \
             "<+++++[>++++++<-]>-." \
             "+++++++." \
