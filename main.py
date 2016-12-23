@@ -1,95 +1,127 @@
-from collections import defaultdict
-h = "+++[>+++[>+++[>+++<-]<-]<-]>>>."
-command = "++++++++[>+++++++++<-]>." \
-          "<+++++[>++++++<-]>-." \
-          "+++++++." \
-          "." \
-          "+++." \
-          ">++++[>++++++++<-]>." \
-          "<<++++++++." \
-          "--------." \
-          "+++." \
-          "------." \
-          "--------." \
-          ">>+."
-command_index = 0
-memory_index = 0
-memory = defaultdict(int)
-return_address = []
-buffer = []
+class BrainFuck:
+    def plus(self):
+        self.memory[self.the_pointer] += 1
+
+    def minus(self):
+        self.memory[self.the_pointer] -= 1
+
+    def left(self):
+        self.the_pointer -= 1
+
+    def right(self):
+        self.the_pointer += 1
+
+    def begin(self):
+        if self.memory[self.the_pointer] != 0:
+            self.call_stack.append(self.program_counter)
+            return
+
+        while True:
+            self.program_counter += 1
+            if self.program_counter >= self.program_length:
+                return self.abort("PC{}: Corresponding ']' cannot be found."
+                                  .format(self.call_stack[-1]))
+            if self.program[self.program_counter] == ']':
+                return
+            if self.program[self.program_counter] == '[':
+                self.begin()
+
+    def end(self):
+        if not self.call_stack:
+            return self.abort("PC{}: Corresponding ']' cannot be found."
+                              .format(self.program_counter))
+        if self.memory[self.the_pointer] == 0:
+            self.call_stack.pop()
+        else:
+            self.program_counter = self.call_stack[-1]
+
+    def read(self):
+        while True:
+            try:
+                self.memory[self.the_pointer] = next(self.buffer)
+                return
+            except StopIteration:
+                try:
+                    self.buffer = iter(input().encode())
+                except EOFError:
+                    from itertools import repeat
+                    self.buffer = repeat(0)
+
+    def put(self):
+        print(chr(self.memory[self.the_pointer]), end='')
+
+    def dump(self):
+        from sys import stderr
+        print("\nthe_pointer={0}, program_counter={1}"
+              .format(self.the_pointer, self.program_counter), file=stderr)
+        print(sorted(self.memory.items()), file=stderr)
+
+    def run(self):
+        try:
+            while self.program_counter < self.program_length:
+                self.interpreter[self.program[self.program_counter]]()
+                self.program_counter += 1
+        finally:
+            self.dump()
+
+    def abort(self, _msg):
+        from sys import stderr
+        self.program_counter = self.program_length
+        print(_msg, file=stderr)
+        self.dump()
+
+    def __init__(self, _program):
+        from collections import defaultdict
+        self.program = _program
+        self.program_length = len(_program)
+
+        self.program_counter = 0
+        self.the_pointer = 0
+        self.memory = defaultdict(int)
+        self.call_stack = []
+        self.buffer = iter([])
+
+        def nop_factory():
+            def nop():
+                pass
+
+            return nop
+
+        self.interpreter = defaultdict(nop_factory)
+        self.interpreter.update({
+            '+': self.plus,
+            '-': self.minus,
+            '<': self.left,
+            '>': self.right,
+            '[': self.begin,
+            ']': self.end,
+            ',': self.read,
+            '.': self.put,
+            '#': self.dump
+        })
 
 
-def plus():
-    memory[memory_index] += 1
+if __name__ == '__main__':
+    from sys import argv
+    try:
+        program = open(argv[1]).read()
+        if not program:
+            raise ValueError
+    except:
+        program =\
+            "++++++++[>+++++++++<-]>." \
+            "<+++++[>++++++<-]>-." \
+            "+++++++." \
+            "." \
+            "+++." \
+            ">++++[>++++++++<-]>." \
+            "<<++++++++." \
+            "--------." \
+            "+++." \
+            "------." \
+            "--------." \
+            ">>+."
 
-
-def minus():
-    memory[memory_index] -= 1
-
-
-def left():
-    global memory_index
-    memory_index -= 1
-
-
-def right():
-    global memory_index
-    memory_index += 1
-
-
-def begin():
-    global command_index
-    if memory[memory_index] == 0:
-        command_index += 1
-        while command[command_index] != ']':
-            if command[command_index] == '[':
-                begin()
-            command_index += 1
-    else:
-        return_address.append(command_index)
-
-
-def end():
-    global command_index
-    if memory[memory_index] == 0:
-        return_address.pop()
-    else:
-        command_index = return_address[-1]
-
-"""
-def read():
-    buffer.append(list(input()))
-"""
-
-
-def put():
-    print(chr(memory[memory_index]), end='')
-
-
-def dump():
-    print()
-    print(dict(memory))
-    print("m_index={0}, c_index={1}".format(memory_index, command_index))
-
-
-while command_index < len(command):
-    c = command[command_index]
-    if c == "+":
-        plus()
-    if c == "-":
-        minus()
-    if c == "<":
-        left()
-    if c == ">":
-        right()
-    if c == "[":
-        begin()
-    if c == "]":
-        end()
-    if c == ".":
-        put()
-    if c == "/":
-        dump()
-    command_index += 1
-
-# dump()
+    print(program)
+    bf = BrainFuck(program)
+    bf.run()
